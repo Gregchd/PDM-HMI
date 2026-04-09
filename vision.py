@@ -157,9 +157,17 @@ def main():
     if not cap.isOpened():
         sys.stderr.write(f"[ERROR] No se pudo abrir camara {args.cam}\n")
         sys.exit(1)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    sys.stderr.write(f"[VISION] Camara {args.cam} lista. Esperando comandos SCAN...\n")
+
+    # Intentar la mayor resolucion posible; el driver cae al maximo soportado
+    # si la camara no llega a 1280x720.
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap.set(cv2.CAP_PROP_FPS, 30)
+
+    # Leer la resolucion real que acepto el driver
+    w_real = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h_real = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    sys.stderr.write(f"[VISION] Camara {args.cam} — {w_real}x{h_real}. Esperando SCAN...\n")
 
     # ── Hilo para leer stdin sin bloquear el loop de video ──
     cmds = []
@@ -188,9 +196,11 @@ def main():
         ahora = time.time()
 
         # ── Stream de video al browser ──
+        # Calidad 90: visualmente indistinguible del original, mucho mejor que 60.
+        # server.js lo sirve como MJPEG via HTTP; el browser lo decodifica nativo.
         if (ahora - t_stream) >= intervalo_stream:
             t_stream = ahora
-            _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+            _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
             emit({"evt": "frame", "data": base64.b64encode(buf).decode()})
 
         # ── Procesar comandos SCAN recibidos por stdin ──

@@ -235,7 +235,7 @@ body {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
-  display: none;
+  /* MJPEG nativo: visible desde el inicio, el browser gestiona el stream */
 }
 .cam-offline {
   position: absolute; top: 50%; left: 50%;
@@ -509,7 +509,8 @@ body {
       </div>
 
       <div class="cam-frame">
-        <img id="cam-img" alt="">
+        <!-- MJPEG directo: el browser lo decodifica sin pasar por JavaScript -->
+        <img id="cam-img" src="/stream" alt="">
 
         <div class="cam-offline" id="cam-offline">
           <svg width="48" height="40" viewBox="0 0 48 40">
@@ -640,11 +641,31 @@ PATS.forEach(p => {
 
 // ══ ESTADO ════════════════════════════════════════════
 let selPat   = null;
-let scanning = false;
-let socket   = null;
-let streamOn = false;
-let fpsN = 0, fpsT = Date.now();
+let scanning  = false;
+let socket    = null;
 let scanTotal = 0;
+
+// ── FPS counter via MJPEG nativo (event 'load' del img) ──────────────────────
+// El browser dispara 'load' cada vez que decodifica un frame MJPEG
+;(function () {
+  let n = 0, t = Date.now();
+  document.getElementById('cam-img').addEventListener('load', () => {
+    n++;
+    // Ocultar placeholder cuando llega el primer frame
+    document.getElementById('cam-offline').style.display = 'none';
+    const now = Date.now();
+    if (now - t >= 1000) {
+      const fps = n + ' fps';
+      document.getElementById('fps-lbl').textContent = fps;
+      document.getElementById('fps-tag').textContent = fps;
+      n = 0; t = now;
+    }
+  });
+  // Mostrar offline si el stream falla
+  document.getElementById('cam-img').addEventListener('error', () => {
+    document.getElementById('cam-offline').style.display = '';
+  });
+}());
 
 // ══ SOCKET ════════════════════════════════════════════
 function init() {
@@ -666,23 +687,7 @@ function init() {
   socket.on('patron_cambiado', d => selectPat(d.patron, false));
   socket.on('contadores', d => updateCtrs(d));
 
-  socket.on('frame', d => {
-    const img = document.getElementById('cam-img');
-    img.src = 'data:image/jpeg;base64,' + d.data;
-    if (!streamOn) {
-      streamOn = true;
-      img.style.display = 'block';
-      document.getElementById('cam-offline').style.display = 'none';
-    }
-    fpsN++;
-    const now = Date.now();
-    if (now - fpsT >= 1000) {
-      const fps = fpsN + ' fps';
-      document.getElementById('fps-lbl').textContent = fps;
-      document.getElementById('fps-tag').textContent = fps;
-      fpsN = 0; fpsT = now;
-    }
-  });
+  // Los frames de video van por /stream (MJPEG HTTP), no por Socket.io
 
   socket.on('vision', handleScan);
 }
