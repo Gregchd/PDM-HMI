@@ -80,9 +80,21 @@ def analizar(frame: np.ndarray):
             mc |= cv2.inRange(hsv, np.array(p.bajo2), np.array(p.alto2))
         cobs[pid] = round(float(np.count_nonzero(cv2.bitwise_and(mc, mascara))) / pix, 4)
 
-    # Gana simplemente el de mayor cobertura (no hay umbral minimo)
+    # Gana el de mayor cobertura (sin umbral minimo — ambiente cerrado)
     mejor = max(cobs, key=cobs.get) if any(v > 0 for v in cobs.values()) else None
-    return mejor, cobs
+
+    # Confianza = dominancia relativa del ganador sobre todos los colores detectados.
+    # Ej: dots=0.008, halfblue=0.002, orange=0.001, green=0.001 → total=0.012
+    #     confianza(dots) = 0.008/0.012 = 0.67  (67%)
+    # Esto evita mostrar "0.8%" cuando la deteccion es correcta pero los puntos
+    # son pequenos en el frame. El numero refleja CERTEZA, no area fisica.
+    total_cob = sum(cobs.values())
+    if mejor and total_cob > 0:
+        confianza = round(cobs[mejor] / total_cob, 3)
+    else:
+        confianza = 0.0
+
+    return mejor, cobs, confianza
 
 
 # ══════════════════════════════════════════════
@@ -189,17 +201,16 @@ def main():
         for cmd in pendientes:
             if cmd == "SCAN":
                 contador += 1
-                det, cobs = analizar(frame)
-                conf = round(cobs.get(det, 0), 3) if det else 0.0
+                det, cobs, confianza = analizar(frame)
                 emit({
                     "evt":       "scan",
                     "n":          contador,
                     "detectado":  det,
-                    "confianza":  conf,
-                    "coberturas": cobs,
+                    "confianza":  confianza,   # dominancia relativa 0.0-1.0
+                    "coberturas": cobs,        # cobertura bruta de area por patron
                     "ts":         round(ahora, 2),
                 })
-                sys.stderr.write(f"[SCAN #{contador}] det={det}  conf={conf:.1%}\n")
+                sys.stderr.write(f"[SCAN #{contador}] det={det}  confianza={confianza:.0%}  cobs={cobs}\n")
 
         # ── Ventana debug local ──
         if args.debug:

@@ -3,359 +3,452 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Escáner de conos</title>
+<title>PDM — Escáner de conos</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-/* ── Reset absoluto ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:      #f0ede8;
-  --surface: #ffffff;
-  --border:  #e0ddd8;
-  --text:    #1a1a1a;
-  --muted:   #888;
-  --blue:    #2563eb;
-  --green:   #059669;
-  --red:     #dc2626;
-  --amber:   #d97706;
-  --r:       10px;
-  --gap:     8px;
+  --bg:        #eef0f3;
+  --surface:   #ffffff;
+  --s2:        #f7f8fa;
+  --border:    #dde1e7;
+  --text:      #111827;
+  --t2:        #4b5563;
+  --t3:        #9ca3af;
+  --blue:      #1a56db;
+  --blue-lt:   #eff6ff;
+  --green:     #15803d;
+  --green-lt:  #f0fdf4;
+  --red:       #b91c1c;
+  --red-lt:    #fff1f2;
+  --amber:     #b45309;
+  --amber-lt:  #fffbeb;
+  --r:         8px;
+  --shadow:    0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
 }
 
-/* ── Una sola pantalla sin scroll ── */
 html, body {
   height: 100%;
   overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
+
 body {
   display: flex;
   flex-direction: column;
-  background: var(--bg);
-  color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
-  padding: 8px 10px 8px;
-  gap: var(--gap);
+  padding: 10px 12px;
+  gap: 8px;
 }
 
-/* ── Topbar ── */
+/* ══ TOPBAR ═══════════════════════════════════════════ */
 .topbar {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
 }
-.app-title { font-size: 14px; font-weight: 700; }
-.conn-pill {
-  font-size: 11px; font-weight: 600;
-  padding: 3px 11px;
-  border-radius: 99px;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.conn-pill.on  { background: #d1fae5; color: #065f46; }
-.conn-pill.off { background: #fee2e2; color: #991b1b; }
+.brand-mark {
+  width: 28px; height: 28px;
+  background: var(--blue);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  font-size: 13px; font-weight: 800;
+  letter-spacing: -.03em;
+  flex-shrink: 0;
+}
+.brand-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.brand-sub  { font-size: 11px; color: var(--t3); font-weight: 400; }
 
-/* ── Grid principal ── */
+.topbar-spacer { flex: 1; }
+
+.scan-counter {
+  font-size: 11px; color: var(--t2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-variant-numeric: tabular-nums;
+}
+.scan-counter span { font-weight: 700; color: var(--text); }
+
+.conn-pill {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+.conn-pill .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.conn-pill.on  { background: var(--green-lt); color: var(--green);  border-color: #bbf7d0; }
+.conn-pill.off { background: var(--red-lt);   color: var(--red);    border-color: #fecaca; }
+.conn-pill.on  .dot { background: var(--green); }
+.conn-pill.off .dot { background: var(--red);   animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+/* ══ GRID ═════════════════════════════════════════════ */
 .grid {
   flex: 1 1 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr) 195px;
-  grid-template-rows: 1fr;
-  gap: var(--gap);
+  grid-template-columns: 185px minmax(0,1fr) 210px;
+  gap: 8px;
 }
+.col { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 
-/* ── Columnas ── */
-.col { display: flex; flex-direction: column; gap: var(--gap); min-height: 0; }
-
-/* ── Card base ── */
-.card {
+/* ══ PANEL BASE ═══════════════════════════════════════ */
+.panel {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r);
-  padding: 10px 12px;
+  box-shadow: var(--shadow);
 }
-.card-title {
-  font-size: 9px; font-weight: 700;
-  color: var(--muted);
+.panel-head {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.panel-label {
+  font-size: 10px; font-weight: 700;
+  color: var(--t3);
   text-transform: uppercase;
   letter-spacing: .08em;
-  margin-bottom: 8px;
 }
+.panel-body { padding: 10px 12px; }
 
-/* ══ COL IZQUIERDA ══════════════════════════════ */
+/* ══ COL IZQUIERDA ════════════════════════════════════ */
 
-/* Selector de patrones */
-.pat-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-.pat-card {
+/* Patrones */
+.pat-list { display: flex; flex-direction: column; gap: 5px; }
+.pat-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 9px;
+  border-radius: 6px;
   border: 1.5px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 3px 5px;
   cursor: pointer;
-  text-align: center;
-  background: #faf9f6;
+  background: var(--s2);
   transition: border-color .12s, background .12s;
   user-select: none;
 }
-.pat-card:hover   { border-color: #aaa; }
-.pat-card.selected { border-color: var(--blue); background: #eff6ff; }
-.pat-card.selected .pat-label { color: #1d4ed8; }
-.pat-ring  { display: flex; justify-content: center; align-items: center; height: 40px; }
-.pat-label { font-size: 9px; font-weight: 700; color: #444; margin-top: 2px; line-height: 1.25; }
-.pat-sub   { font-size: 8px; color: #bbb; }
+.pat-item:hover { border-color: var(--blue); background: var(--blue-lt); }
+.pat-item.selected { border-color: var(--blue); background: var(--blue-lt); }
+.pat-item.selected .pat-name { color: var(--blue); }
+.pat-swatch {
+  width: 10px; height: 32px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.pat-info { flex: 1; min-width: 0; }
+.pat-name { font-size: 11px; font-weight: 700; color: var(--text); line-height: 1.3; }
+.pat-desc { font-size: 9px; color: var(--t3); margin-top: 1px; }
+.pat-check {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px;
+  color: transparent;
+  flex-shrink: 0;
+  transition: border-color .12s, background .12s, color .12s;
+}
+.pat-item.selected .pat-check {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
 
 /* Botón escanear */
 .btn-scan {
   flex: 0 0 auto;
   width: 100%;
-  padding: 11px;
-  font-size: 14px;
-  font-weight: 700;
+  padding: 12px;
+  font-size: 13px; font-weight: 700;
   background: var(--blue);
   color: #fff;
   border: none;
   border-radius: var(--r);
   cursor: pointer;
-  transition: opacity .15s;
-  letter-spacing: .01em;
+  letter-spacing: .02em;
+  transition: background .12s, opacity .12s;
+  position: relative;
+  overflow: hidden;
 }
-.btn-scan:hover:not(:disabled) { opacity: .87; }
+.btn-scan::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0);
+  transition: background .1s;
+}
+.btn-scan:hover:not(:disabled)::before { background: rgba(255,255,255,.1); }
 .btn-scan:disabled { background: #93c5fd; cursor: not-allowed; }
+.btn-scan .btn-icon { margin-right: 6px; }
 
-.sel-lbl {
-  font-size: 10px;
-  color: var(--muted);
+.sel-hint {
+  font-size: 10px; color: var(--t3);
   text-align: center;
   min-height: 14px;
 }
 
-/* ══ COL CENTRO (cámara) ════════════════════════ */
+/* ══ COL CENTRO — CÁMARA ══════════════════════════════ */
 
-.cam-wrap {
+.cam-panel {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  overflow: hidden;
 }
-.cam-header {
+.cam-head {
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 11px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
+}
+.live-badge {
+  display: flex; align-items: center; gap: 5px;
   font-size: 11px; font-weight: 600;
 }
 .live-dot {
-  display: inline-block;
-  width: 6px; height: 6px;
-  border-radius: 50%;
+  width: 6px; height: 6px; border-radius: 50%;
   background: #ef4444;
-  margin-right: 5px;
   animation: blink 1.2s ease-in-out infinite;
 }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.15} }
-
-/* Frame de cámara: ocupa todo el espacio sobrante */
 .cam-frame {
   flex: 1 1 0;
   min-height: 0;
   position: relative;
-  background: #111;
+  background: #0a0a0a;
   overflow: hidden;
 }
-#cam-stream {
-  position: absolute;
-  inset: 0;
+#cam-img {
+  position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
   display: none;
 }
-.cam-placeholder {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  opacity: .08;
+.cam-offline {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  text-align: center;
+  color: #333;
 }
+.cam-offline svg { opacity: .15; display: block; margin: 0 auto 8px; }
+.cam-offline p { font-size: 11px; color: #555; }
 
-/* Guía circular de zona de análisis */
-#guide-svg {
-  position: absolute;
-  inset: 0;
+/* Guía circular */
+#guide {
+  position: absolute; inset: 0;
   width: 100%; height: 100%;
   pointer-events: none;
-  transition: opacity .25s;
+  transition: opacity .3s;
+  opacity: .3;
 }
-#guide-svg.dim    { opacity: .3; }
-#guide-svg.active { opacity: .8; }
-#guide-svg.ok     { opacity: .9; }
-#guide-svg.fail   { opacity: .9; }
+#guide.scanning { opacity: .85; }
+#guide.ok       { opacity: .9; }
+#guide.fail     { opacity: .9; }
 
-/* Flash al escanear */
-#scan-flash {
+/* Flash de scan */
+#flash {
   position: absolute; inset: 0;
   background: transparent;
   pointer-events: none;
-  transition: background .07s;
 }
-#scan-flash.flash { background: rgba(255,255,255,.3); }
+#flash.on { background: rgba(255,255,255,.25); transition: none; }
+#flash.off { background: transparent; transition: background .2s; }
 
-/* Barras de cobertura debajo de cámara */
-.cov-wrap {
-  flex: 0 0 auto;
-  padding: 7px 11px 9px;
-  border-top: 1px solid var(--border);
+/* Overlay de estado sobre el video */
+.cam-status {
+  position: absolute;
+  bottom: 8px; left: 8px; right: 8px;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  pointer-events: none;
 }
-.cov-title {
-  font-size: 9px; font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .07em;
+.cam-tag {
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 10px; color: rgba(255,255,255,.85);
+  font-weight: 500;
+}
+
+/* Barras de cobertura */
+.cov-section {
+  flex: 0 0 auto;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--s2);
+  border-radius: 0 0 var(--r) var(--r);
+}
+.cov-head {
+  font-size: 9px; font-weight: 700; color: var(--t3);
+  text-transform: uppercase; letter-spacing: .07em;
   margin-bottom: 6px;
 }
 .cov-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 3px 12px;
+  gap: 4px 14px;
 }
-.cov-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
+.cov-row { display: flex; align-items: center; gap: 5px; }
 .cov-name {
-  font-size: 9px; color: #555; font-weight: 500;
-  min-width: 62px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 9px; color: var(--t2); font-weight: 500;
+  min-width: 64px; white-space: nowrap;
 }
-.cov-track {
-  flex: 1;
-  height: 5px;
-  background: #eee;
-  border-radius: 3px;
-  overflow: hidden;
+.cov-bar {
+  flex: 1; height: 4px;
+  background: var(--border); border-radius: 2px; overflow: hidden;
 }
 .cov-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width .3s ease;
-  width: 0%;
+  height: 100%; border-radius: 2px;
+  transition: width .35s ease; width: 0%;
 }
-.cov-pct {
-  font-size: 9px; color: var(--muted);
-  min-width: 26px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+.cov-val {
+  font-size: 9px; color: var(--t3); min-width: 28px;
+  text-align: right; font-variant-numeric: tabular-nums;
 }
 
-/* ══ COL DERECHA ════════════════════════════════ */
+/* ══ COL DERECHA ══════════════════════════════════════ */
 
-/* Resultado */
-.result-card {
+/* Veredicto — tarjeta principal */
+.verdict-card {
   flex: 0 0 auto;
+  padding: 14px 14px 12px;
   text-align: center;
-  padding: 10px 12px 11px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  transition: border-color .25s, background .25s;
 }
-.result-icon  { font-size: 30px; line-height: 1; margin-bottom: 2px; }
-.result-name  { font-size: 12px; font-weight: 700; }
-.result-pct   { font-size: 24px; font-weight: 800; letter-spacing: -.02em; color: var(--muted); transition: color .3s; }
-.result-badge {
-  display: inline-block;
-  margin-top: 5px;
-  font-size: 10px; font-weight: 700;
-  padding: 3px 12px;
-  border-radius: 99px;
-  opacity: 0; transition: opacity .25s;
-}
-.result-badge.show { opacity: 1; }
-.result-badge.ok   { background: #d1fae5; color: #065f46; }
-.result-badge.fail { background: #fee2e2; color: #991b1b; }
-.result-badge.free { background: #dbeafe; color: #1d4ed8; }
+.verdict-card.v-ok   { border-color: #86efac; background: var(--green-lt); }
+.verdict-card.v-fail { border-color: #fca5a5; background: var(--red-lt); }
+.verdict-card.v-free { border-color: #93c5fd; background: var(--blue-lt); }
 
-/* Contadores */
-.ctr-row {
+.verdict-icon {
+  font-size: 34px; line-height: 1;
+  margin-bottom: 4px;
+  transition: color .25s;
+}
+.verdict-status {
+  font-size: 11px; font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-bottom: 1px;
+  transition: color .25s;
+}
+.verdict-color {
+  font-size: 12px; font-weight: 600;
+  color: var(--t2);
+  margin-bottom: 6px;
+}
+.verdict-conf {
+  font-size: 36px; font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1;
+  transition: color .25s;
+}
+.verdict-conf-label {
+  font-size: 9px; color: var(--t3);
+  text-transform: uppercase; letter-spacing: .07em;
+  margin-top: 2px;
+}
+
+/* Idle state */
+.verdict-card .verdict-icon   { color: var(--t3); }
+.verdict-card .verdict-status { color: var(--t3); }
+.verdict-card .verdict-conf   { color: var(--t3); }
+.verdict-card.v-ok   .verdict-icon   { color: var(--green); }
+.verdict-card.v-ok   .verdict-status { color: var(--green); }
+.verdict-card.v-ok   .verdict-conf   { color: var(--green); }
+.verdict-card.v-fail .verdict-icon   { color: var(--red); }
+.verdict-card.v-fail .verdict-status { color: var(--red); }
+.verdict-card.v-fail .verdict-conf   { color: var(--red); }
+.verdict-card.v-free .verdict-icon   { color: var(--blue); }
+.verdict-card.v-free .verdict-status { color: var(--blue); }
+.verdict-card.v-free .verdict-conf   { color: var(--blue); }
+
+/* Métricas del lote */
+.metrics-panel { flex: 0 0 auto; }
+.metrics-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 5px;
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 10px;
 }
-.ctr { background: #faf9f6; border-radius: 7px; padding: 6px 4px; text-align: center; }
-.ctr-val { font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
-.ctr-val.ok  { color: var(--green); }
-.ctr-val.bad { color: var(--red); }
-.ctr-lbl { font-size: 9px; color: var(--muted); font-weight: 600; }
-
-.acc-header {
-  display: flex; justify-content: space-between;
-  font-size: 9px; color: var(--muted);
-  margin-bottom: 4px;
+.metric {
+  background: var(--s2);
+  border-radius: 6px;
+  padding: 8px 4px;
+  text-align: center;
 }
-.acc-track { height: 5px; border-radius: 3px; background: #eee; overflow: hidden; }
-.acc-fill  { height: 100%; border-radius: 3px; background: var(--green); width: 0%; transition: width .5s, background .4s; }
+.metric-val { font-size: 24px; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
+.metric-val.ok  { color: var(--green); }
+.metric-val.bad { color: var(--red); }
+.metric-lbl { font-size: 9px; color: var(--t3); font-weight: 600; margin-top: 2px; }
 
-/* Log (ocupa el espacio restante) */
-.log-card {
+.acc-row { display: flex; justify-content: space-between; font-size: 9px; color: var(--t3); margin-bottom: 4px; }
+.acc-bar { height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.acc-fill { height: 100%; border-radius: 3px; background: var(--green); width: 0%; transition: width .5s, background .4s; }
+
+/* Log */
+.log-panel {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
-.log-box {
+.log-scroll {
   flex: 1 1 0;
   min-height: 0;
   overflow-y: auto;
-  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
   font-size: 9.5px;
-  color: #666;
-  background: #faf9f6;
-  border-radius: 7px;
-  padding: 6px 8px;
-  line-height: 1.8;
+  line-height: 1.85;
+  color: var(--t2);
+  background: #0f1117;
+  border-radius: 0 0 var(--r) var(--r);
+  padding: 8px 10px;
 }
-.lt   { color: #ccc; }
-.lok  { color: var(--green); font-weight: 700; }
-.lbad { color: var(--red);   font-weight: 700; }
-.linfo { color: var(--blue); }
-.lwarn { color: var(--amber); }
+.log-scroll .ts  { color: #3d4451; }
+.log-scroll .ok  { color: #3fb950; font-weight: 700; }
+.log-scroll .err { color: #f85149; font-weight: 700; }
+.log-scroll .inf { color: #58a6ff; }
+.log-scroll .wrn { color: #d29922; }
 
-/* Reset button */
 .btn-reset {
   flex: 0 0 auto;
-  width: 100%;
-  padding: 6px;
+  width: 100%; padding: 7px;
   font-size: 10px; font-weight: 600;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  cursor: pointer;
+  color: var(--t2); background: transparent;
+  border: 1px solid var(--border); border-radius: var(--r);
+  cursor: pointer; transition: background .12s;
 }
-.btn-reset:hover { background: #f5f5f5; }
+.btn-reset:hover { background: var(--s2); }
 
-/* ── Responsive: tablet ── */
+/* ══ RESPONSIVE ═══════════════════════════════════════ */
 @media (max-width: 820px) {
   html, body { height: auto; overflow: auto; }
-  .grid {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto;
-  }
+  .grid { grid-template-columns: 1fr 1fr; }
   .col-center { grid-column: 1 / -1; order: -1; }
-  .cam-frame  { aspect-ratio: 4/3; }   /* reponer aspect-ratio en tablet */
-  .col-right  { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+  .cam-frame  { aspect-ratio: 4/3; }
+  .col-right  { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
   .col-right > * { flex: 1 1 160px; }
-  .log-card   { flex: 1 1 100%; }
+  .log-panel { flex: 1 1 100%; min-height: 140px; }
 }
-@media (max-width: 480px) {
+@media (max-width: 500px) {
   .grid { grid-template-columns: 1fr; }
   .col-center { grid-column: 1; }
 }
@@ -363,354 +456,401 @@ body {
 </head>
 <body>
 
-<!-- TOPBAR -->
+<!-- ══ TOPBAR ══ -->
 <div class="topbar">
-  <span class="app-title">🎯 Escáner de conos de hilo</span>
-  <span class="conn-pill off" id="conn-badge">● Conectando…</span>
-</div>
-
-<!-- GRID -->
-<div class="grid">
-
-  <!-- ── Columna izquierda ── -->
-  <div class="col col-left">
-    <div class="card">
-      <div class="card-title">Patrón del lote</div>
-      <div class="pat-grid" id="pat-grid"></div>
+  <div class="brand">
+    <div class="brand-mark">P</div>
+    <div>
+      <div class="brand-name">PDM Scanner</div>
+      <div class="brand-sub">Control de calidad · conos de hilo</div>
     </div>
-    <button class="btn-scan" id="btn-scan" onclick="doScan()">Escanear</button>
-    <div class="sel-lbl" id="sel-lbl">Selecciona un patrón</div>
   </div>
 
-  <!-- ── Columna centro: cámara ── -->
-  <div class="col col-center">
-    <div class="cam-wrap">
+  <div class="topbar-spacer"></div>
 
-      <div class="cam-header">
-        <span><span class="live-dot"></span>Cámara en vivo</span>
-        <span style="font-size:10px;color:var(--muted);font-weight:400;" id="fps-lbl">— fps</span>
+  <div class="scan-counter">Scan <span id="scan-n">—</span></div>
+
+  <div class="conn-pill off" id="conn-pill">
+    <div class="dot"></div>
+    <span id="conn-txt">Conectando</span>
+  </div>
+</div>
+
+<!-- ══ GRID ══ -->
+<div class="grid">
+
+  <!-- ── Izquierda: patrón + botón ── -->
+  <div class="col col-left">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-label">Patrón esperado</span>
+      </div>
+      <div class="panel-body" style="padding: 8px 10px;">
+        <div class="pat-list" id="pat-list"></div>
+      </div>
+    </div>
+
+    <button class="btn-scan" id="btn-scan" onclick="doScan()">
+      <span class="btn-icon">⬤</span> Escanear
+    </button>
+
+    <div class="sel-hint" id="sel-hint">Selecciona un patrón</div>
+  </div>
+
+  <!-- ── Centro: cámara ── -->
+  <div class="col col-center">
+    <div class="panel cam-panel">
+      <div class="cam-head">
+        <div class="live-badge">
+          <div class="live-dot"></div>
+          Cámara en vivo
+        </div>
+        <span style="font-size:10px;color:var(--t3);" id="fps-lbl">— fps</span>
       </div>
 
       <div class="cam-frame">
-        <img id="cam-stream" alt="">
+        <img id="cam-img" alt="">
 
-        <svg class="cam-placeholder" width="52" height="44" viewBox="0 0 52 44">
-          <rect x="2" y="5" width="48" height="34" rx="4" fill="none" stroke="#fff" stroke-width="1.5"/>
-          <circle cx="26" cy="22" r="9" fill="none" stroke="#fff" stroke-width="1.5"/>
-          <circle cx="26" cy="22" r="3" fill="#fff"/>
+        <div class="cam-offline" id="cam-offline">
+          <svg width="48" height="40" viewBox="0 0 48 40">
+            <rect x="2" y="5" width="44" height="30" rx="4" fill="none" stroke="#fff" stroke-width="1.5"/>
+            <circle cx="24" cy="20" r="8" fill="none" stroke="#fff" stroke-width="1.5"/>
+            <circle cx="24" cy="20" r="3" fill="#fff"/>
+          </svg>
+          <p>Sin señal de cámara</p>
+        </div>
+
+        <!-- Guía de zona de análisis -->
+        <svg id="guide" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+          <circle id="guide-ring" cx="50" cy="50" r="47"
+            fill="none" stroke="rgba(255,255,255,.55)"
+            stroke-width="1.2" stroke-dasharray="6 4"/>
+          <circle cx="50" cy="50" r="1.8" fill="rgba(255,255,255,.5)"/>
+          <line x1="50" y1="1"  x2="50" y2="8"  stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
+          <line x1="50" y1="92" x2="50" y2="99" stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
+          <line x1="1"  y1="50" x2="8"  y2="50" stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
+          <line x1="92" y1="50" x2="99" y2="50" stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
         </svg>
 
-        <!-- Guía circular: zona de análisis de color -->
-        <svg id="guide-svg" class="dim" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-          <circle cx="50" cy="50" r="47" fill="none"
-            stroke="rgba(255,255,255,.6)" stroke-width="1.2" stroke-dasharray="6 4"/>
-          <circle cx="50" cy="50" r="2" fill="rgba(255,255,255,.5)"/>
-          <line x1="50" y1="1"  x2="50" y2="9"  stroke="rgba(255,255,255,.45)" stroke-width="1"/>
-          <line x1="50" y1="91" x2="50" y2="99" stroke="rgba(255,255,255,.45)" stroke-width="1"/>
-          <line x1="1"  y1="50" x2="9"  y2="50" stroke="rgba(255,255,255,.45)" stroke-width="1"/>
-          <line x1="91" y1="50" x2="99" y2="50" stroke="rgba(255,255,255,.45)" stroke-width="1"/>
-        </svg>
+        <div id="flash"></div>
 
-        <div id="scan-flash"></div>
+        <div class="cam-status">
+          <span class="cam-tag" id="cam-pat-tag">Sin lote activo</span>
+          <span class="cam-tag" id="fps-tag">— fps</span>
+        </div>
       </div>
 
-      <!-- Barras de cobertura -->
-      <div class="cov-wrap">
-        <div class="cov-title">Cobertura de color</div>
+      <!-- Cobertura de color -->
+      <div class="cov-section">
+        <div class="cov-head">Cobertura de color en zona analizada</div>
         <div class="cov-grid" id="cov-grid"></div>
       </div>
-
     </div>
   </div>
 
-  <!-- ── Columna derecha ── -->
+  <!-- ── Derecha: resultado + métricas + log ── -->
   <div class="col col-right">
 
-    <!-- Resultado -->
-    <div class="card result-card">
-      <div class="card-title">Último scan</div>
-      <div class="result-icon" id="result-icon">◌</div>
-      <div class="result-name"  id="result-name">Sin escanear</div>
-      <div class="result-pct"   id="result-pct">—</div>
-      <span class="result-badge" id="result-badge"></span>
+    <!-- Veredicto -->
+    <div class="verdict-card" id="verdict-card">
+      <div class="panel-label" style="margin-bottom:8px;">Último resultado</div>
+      <div class="verdict-icon"   id="v-icon">◌</div>
+      <div class="verdict-status" id="v-status">Esperando</div>
+      <div class="verdict-color"  id="v-color">—</div>
+      <div class="verdict-conf"   id="v-conf">—</div>
+      <div class="verdict-conf-label">confianza</div>
     </div>
 
-    <!-- Contadores -->
-    <div class="card">
-      <div class="card-title">Contadores del lote</div>
-      <div class="ctr-row">
-        <div class="ctr"><div class="ctr-val ok"  id="cnt-ok">0</div><div class="ctr-lbl">OK</div></div>
-        <div class="ctr"><div class="ctr-val bad" id="cnt-bad">0</div><div class="ctr-lbl">Alertas</div></div>
-        <div class="ctr"><div class="ctr-val"     id="cnt-total">0</div><div class="ctr-lbl">Total</div></div>
+    <!-- Métricas -->
+    <div class="panel metrics-panel">
+      <div class="panel-head">
+        <span class="panel-label">Lote actual</span>
       </div>
-      <div class="acc-header"><span>Precisión</span><span id="acc-lbl">—</span></div>
-      <div class="acc-track"><div class="acc-fill" id="acc-fill"></div></div>
+      <div class="panel-body">
+        <div class="metrics-grid">
+          <div class="metric">
+            <div class="metric-val ok"  id="cnt-ok">0</div>
+            <div class="metric-lbl">Correctos</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val bad" id="cnt-bad">0</div>
+            <div class="metric-lbl">Alertas</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val"     id="cnt-tot">0</div>
+            <div class="metric-lbl">Total</div>
+          </div>
+        </div>
+        <div class="acc-row">
+          <span>Precisión del lote</span>
+          <span id="acc-val">—</span>
+        </div>
+        <div class="acc-bar">
+          <div class="acc-fill" id="acc-fill"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Log -->
-    <div class="card log-card">
-      <div class="card-title">Actividad</div>
-      <div class="log-box" id="log-box">
-        <div><span class="lt">--:--:--</span> Sistema iniciando…</div>
+    <div class="panel log-panel">
+      <div class="panel-head">
+        <span class="panel-label">Actividad</span>
       </div>
+      <div class="log-scroll" id="log"></div>
     </div>
 
-    <button class="btn-reset" onclick="resetContadores()">↺ Resetear contadores</button>
-
+    <button class="btn-reset" onclick="resetCtrs()">↺ Resetear contadores</button>
   </div>
+
 </div>
 
 <script>
-// ══════════════════════════════════════════════
-//  PATRONES (mismo orden que vision.py)
-// ══════════════════════════════════════════════
-const PATRONES_DEF = [
-  { id: 'dots',     nombre: 'Puntos fucsia',  sub: 'magenta',  color: '#D4537E' },
-  { id: 'halfblue', nombre: 'Mitad azul',     sub: 'azul',     color: '#4A8ECC' },
-  { id: 'orange',   nombre: 'Ondas naranja',  sub: 'naranja',  color: '#D85A30' },
-  { id: 'green',    nombre: 'Bloques verdes', sub: 'verde',    color: '#3B6D11' },
+// ══ PATRONES ══════════════════════════════════════════
+const PATS = [
+  { id:'dots',     nombre:'Puntos fucsia',  desc:'Magenta puntual',  color:'#D4537E' },
+  { id:'halfblue', nombre:'Mitad azul',     desc:'Azul media cara',  color:'#4A8ECC' },
+  { id:'orange',   nombre:'Ondas naranja',  desc:'Naranja continuo', color:'#D85A30' },
+  { id:'green',    nombre:'Bloques verdes', desc:'Verde alternado',  color:'#3B6D11' },
 ];
 
-// Mini SVG de anillo para las tarjetas
-function makeRingSVG(p, size = 40) {
-  const cx = size/2, cy = size/2;
-  const R = size*.42, r = size*.24, mid = (R+r)/2, sw = R-r;
-  let inner = '';
-  if (p.id === 'dots') {
-    for (let i = 0; i < 12; i++) {
-      const a = Math.PI*2/12*i;
-      inner += `<circle cx="${(cx+mid*Math.cos(a)).toFixed(1)}" cy="${(cy+mid*Math.sin(a)).toFixed(1)}" r="${(sw*.28).toFixed(1)}" fill="${p.color}"/>`;
-    }
-  } else if (p.id === 'halfblue') {
-    inner = `<path d="M${cx} ${cy-R} A${R} ${R} 0 0 0 ${cx} ${cy+R} L${cx} ${cy+r} A${r} ${r} 0 0 1 ${cx} ${cy-r} Z" fill="${p.color}" opacity=".85"/>`;
-  } else if (p.id === 'orange') {
-    for (let i = 0; i < 10; i++) {
-      const a = Math.PI*2/10*i+.16, a2 = a+.22;
-      inner += `<line x1="${(cx+mid*Math.cos(a)).toFixed(1)}" y1="${(cy+mid*Math.sin(a)).toFixed(1)}" x2="${(cx+mid*Math.cos(a2)).toFixed(1)}" y2="${(cy+mid*Math.sin(a2)).toFixed(1)}" stroke="${p.color}" stroke-width="${(sw*.55).toFixed(1)}" stroke-linecap="round"/>`;
-    }
-  } else if (p.id === 'green') {
-    for (let i = 0; i < 8; i++) {
-      if (i%2===0) {
-        const a1 = Math.PI*2/8*i, a2 = Math.PI*2/8*(i+.85);
-        inner += `<line x1="${(cx+mid*Math.cos(a1)).toFixed(1)}" y1="${(cy+mid*Math.sin(a1)).toFixed(1)}" x2="${(cx+mid*Math.cos(a2)).toFixed(1)}" y2="${(cy+mid*Math.sin(a2)).toFixed(1)}" stroke="${p.color}" stroke-width="${(sw*.6).toFixed(1)}" stroke-linecap="round"/>`;
-      }
-    }
-  }
-  const BG = '#c8a87a';
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-    <circle cx="${cx}" cy="${cy}" r="${mid}" fill="none" stroke="${BG}" stroke-width="${sw}"/>
-    <clipPath id="cl-${p.id}"><path d="M${cx} ${cy-R} A${R} ${R} 0 1 1 ${(cx-.01).toFixed(2)} ${cy-R} Z M${cx} ${cy-r} A${r} ${r} 0 1 0 ${(cx-.01).toFixed(2)} ${cy-r} Z"/></clipPath>
-    <g clip-path="url(#cl-${p.id})">${inner}</g>
-    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#ccc" stroke-width=".7"/>
-  </svg>`;
-}
-
-// Construir tarjetas de patrón
-const pg = document.getElementById('pat-grid');
-PATRONES_DEF.forEach(p => {
-  const d = document.createElement('div');
-  d.className = 'pat-card'; d.dataset.id = p.id;
-  d.innerHTML = `<div class="pat-ring">${makeRingSVG(p)}</div><div class="pat-label">${p.nombre}</div><div class="pat-sub">${p.sub}</div>`;
-  d.onclick = () => selectPat(p.id);
-  pg.appendChild(d);
+// Construir lista de patrones
+const patList = document.getElementById('pat-list');
+PATS.forEach(p => {
+  patList.insertAdjacentHTML('beforeend', `
+    <div class="pat-item" data-id="${p.id}" onclick="selectPat('${p.id}')">
+      <div class="pat-swatch" style="background:${p.color}"></div>
+      <div class="pat-info">
+        <div class="pat-name">${p.nombre}</div>
+        <div class="pat-desc">${p.desc}</div>
+      </div>
+      <div class="pat-check" id="chk-${p.id}">✓</div>
+    </div>`);
 });
 
 // Construir barras de cobertura
 const covGrid = document.getElementById('cov-grid');
-PATRONES_DEF.forEach(p => {
+PATS.forEach(p => {
   covGrid.insertAdjacentHTML('beforeend', `
     <div class="cov-row">
       <span class="cov-name">${p.nombre}</span>
-      <div class="cov-track"><div class="cov-fill" id="cov-${p.id}" style="background:${p.color}"></div></div>
-      <span class="cov-pct" id="pct-${p.id}">0%</span>
+      <div class="cov-bar"><div class="cov-fill" id="cov-${p.id}" style="background:${p.color}"></div></div>
+      <span class="cov-val" id="pct-${p.id}">0%</span>
     </div>`);
 });
 
-// ══════════════════════════════════════════════
-//  ESTADO
-// ══════════════════════════════════════════════
+// ══ ESTADO ════════════════════════════════════════════
 let selPat   = null;
 let scanning = false;
 let socket   = null;
 let streamOn = false;
 let fpsN = 0, fpsT = Date.now();
+let scanTotal = 0;
 
-// ══════════════════════════════════════════════
-//  SOCKET.IO
-// ══════════════════════════════════════════════
-function conectar() {
+// ══ SOCKET ════════════════════════════════════════════
+function init() {
   socket = io();
 
-  socket.on('connect',    () => { setBadge(true);  log('<span class="linfo">WS</span> Conectado'); });
-  socket.on('disconnect', () => { setBadge(false); log('<span class="lbad">WS</span> Desconectado'); });
-
+  socket.on('connect', () => {
+    setConn(true);
+    addLog('inf', 'Conectado al servidor');
+  });
+  socket.on('disconnect', () => {
+    setConn(false);
+    addLog('err', 'Desconectado del servidor');
+  });
   socket.on('estado_inicial', d => {
     if (d.patronActivo) selectPat(d.patronActivo, false);
     updateCtrs(d.contadores);
-    log('<span class="linfo">OK</span> Servidor listo');
+    addLog('inf', 'Sistema listo · cámara activa');
   });
-
   socket.on('patron_cambiado', d => selectPat(d.patron, false));
-  socket.on('contadores',      d => updateCtrs(d));
+  socket.on('contadores', d => updateCtrs(d));
 
   socket.on('frame', d => {
-    const img = document.getElementById('cam-stream');
+    const img = document.getElementById('cam-img');
     img.src = 'data:image/jpeg;base64,' + d.data;
     if (!streamOn) {
       streamOn = true;
       img.style.display = 'block';
-      document.querySelector('.cam-placeholder').style.display = 'none';
+      document.getElementById('cam-offline').style.display = 'none';
     }
     fpsN++;
     const now = Date.now();
     if (now - fpsT >= 1000) {
-      document.getElementById('fps-lbl').textContent = fpsN + ' fps';
+      const fps = fpsN + ' fps';
+      document.getElementById('fps-lbl').textContent = fps;
+      document.getElementById('fps-tag').textContent = fps;
       fpsN = 0; fpsT = now;
     }
   });
 
-  socket.on('vision', handleVision);
+  socket.on('vision', handleScan);
 }
 
-// ══════════════════════════════════════════════
-//  RESULTADO DE SCAN
-// ══════════════════════════════════════════════
-function handleVision(evt) {
+// ══ RESULTADO ═════════════════════════════════════════
+function handleScan(evt) {
   if (evt.evt !== 'scan') return;
   setScanState(false);
 
-  const { detectado, confianza, match, coberturas, _contadores } = evt;
-  const ts    = new Date().toTimeString().slice(0, 8);
-  const guide = document.getElementById('guide-svg');
+  const { detectado, confianza, match, coberturas, _contadores, n } = evt;
+  const ts = new Date().toTimeString().slice(0, 8);
 
-  // Barras de cobertura
+  if (n) {
+    scanTotal = n;
+    document.getElementById('scan-n').textContent = '#' + n;
+  }
+
+  // Barras de cobertura (valores brutos × 100 para mostrar %)
   if (coberturas) {
     Object.entries(coberturas).forEach(([pid, v]) => {
-      const pct = Math.round(v * 100);
+      const pct = (v * 100).toFixed(1);
       const f = document.getElementById('cov-' + pid);
       const p = document.getElementById('pct-' + pid);
-      if (f) f.style.width  = pct + '%';
+      if (f) f.style.width  = Math.min(v * 100, 100) + '%';
       if (p) p.textContent  = pct + '%';
     });
   }
 
-  const icon  = document.getElementById('result-icon');
-  const name  = document.getElementById('result-name');
-  const pct   = document.getElementById('result-pct');
-  const badge = document.getElementById('result-badge');
-  const conf  = Math.round((confianza || 0) * 100);
-  const pat   = PATRONES_DEF.find(x => x.id === detectado);
+  const card    = document.getElementById('verdict-card');
+  const icon    = document.getElementById('v-icon');
+  const status  = document.getElementById('v-status');
+  const color   = document.getElementById('v-color');
+  const conf    = document.getElementById('v-conf');
+  const confPct = Math.round((confianza || 0) * 100);
+  const pat     = PATS.find(x => x.id === detectado);
+  const guide   = document.getElementById('guide');
 
-  name.textContent   = pat ? pat.nombre : (detectado || 'No identificado');
-  pct.textContent    = detectado ? conf + '%' : '—';
-  pct.style.color    = pat ? pat.color : 'var(--muted)';
+  color.textContent = pat ? pat.nombre : (detectado || '—');
+  conf.textContent  = detectado ? confPct + '%' : '—';
+  conf.style.color  = '';   // reset, lo controla la clase del card
+
+  card.className = 'verdict-card';
 
   if (detectado) {
     if (match === true) {
-      icon.textContent = '✓'; icon.style.color = 'var(--green)';
-      badge.textContent = 'OK — coincide';
-      badge.className = 'result-badge show ok';
-      guide.className = 'ok';
-      log(`<span class="lt">${ts}</span> <span class="lok">OK</span> ${pat?.nombre} ${conf}%`);
+      card.classList.add('v-ok');
+      icon.textContent   = '✓';
+      status.textContent = 'Correcto';
+      guide.className    = 'ok';
+      addLog('ok', `#${n} ${pat?.nombre} · confianza ${confPct}%`);
     } else if (match === false) {
-      icon.textContent = '✗'; icon.style.color = 'var(--red)';
-      badge.textContent = '⚠ ALERTA — incorrecto';
-      badge.className = 'result-badge show fail';
-      guide.className = 'fail';
-      log(`<span class="lt">${ts}</span> <span class="lbad">ALERTA</span> ${pat?.nombre} · esperado: ${selPat}`);
+      card.classList.add('v-fail');
+      icon.textContent   = '✗';
+      status.textContent = 'Alerta';
+      guide.className    = 'fail';
+      addLog('err', `#${n} ALERTA — ${pat?.nombre} · esperado: ${selPat}`);
     } else {
       // Modo libre
-      icon.textContent = '●'; icon.style.color = pat ? pat.color : '#aaa';
-      badge.textContent = 'Detectado (libre)';
-      badge.className = 'result-badge show free';
-      guide.className = 'active';
-      log(`<span class="lt">${ts}</span> <span class="linfo">INFO</span> ${pat?.nombre} ${conf}%`);
+      card.classList.add('v-free');
+      icon.textContent   = '●';
+      status.textContent = 'Detectado';
+      guide.className    = 'scanning';
+      addLog('inf', `#${n} ${pat?.nombre} · ${confPct}%`);
     }
   } else {
-    icon.textContent = '?'; icon.style.color = '#aaa';
-    badge.textContent = 'Sin color claro';
-    badge.className = 'result-badge show';
-    guide.className = 'dim';
-    log(`<span class="lt">${ts}</span> <span class="lwarn">WARN</span> Sin color reconocible`);
+    icon.textContent   = '?';
+    status.textContent = 'Sin color';
+    color.textContent  = 'No identificado';
+    conf.textContent   = '—';
+    guide.className    = '';
+    guide.style.opacity = '.3';
+    addLog('wrn', `#${n} Sin color reconocible en la zona`);
   }
 
   if (_contadores) updateCtrs(_contadores);
-  setTimeout(() => { guide.className = 'dim'; }, 3500);
+  setTimeout(() => {
+    guide.className = '';
+    guide.style.opacity = '.3';
+  }, 4000);
 }
 
-// ══════════════════════════════════════════════
-//  ACCIONES
-// ══════════════════════════════════════════════
+// ══ ACCIONES ══════════════════════════════════════════
 function doScan() {
   if (scanning || !socket?.connected) return;
   setScanState(true);
 
-  // Flash visual
-  const f = document.getElementById('scan-flash');
-  f.classList.add('flash');
-  setTimeout(() => f.classList.remove('flash'), 120);
+  // Flash
+  const f = document.getElementById('flash');
+  f.className = 'on';
+  requestAnimationFrame(() => requestAnimationFrame(() => { f.className = 'off'; }));
 
-  document.getElementById('guide-svg').className = 'active';
+  document.getElementById('guide').style.opacity = '.85';
+  document.getElementById('guide').className = 'scanning';
+
   socket.emit('trigger_scan');
-  log(`<span class="lt">${new Date().toTimeString().slice(0,8)}</span> <span class="linfo">SCAN</span> Escaneando…`);
+  addLog('inf', 'Escaneando…');
 
-  setTimeout(() => { if (scanning) { setScanState(false); log('<span class="lwarn">WARN</span> Timeout sin respuesta'); } }, 5000);
+  setTimeout(() => {
+    if (scanning) { setScanState(false); addLog('wrn', 'Timeout sin respuesta de cámara'); }
+  }, 6000);
 }
 
 function setScanState(on) {
   scanning = on;
   const b = document.getElementById('btn-scan');
-  b.disabled = on;
-  b.textContent = on ? 'Escaneando…' : 'Escanear';
+  b.disabled     = on;
+  b.innerHTML    = on
+    ? '<span class="btn-icon" style="animation:spin .8s linear infinite;display:inline-block">◌</span> Escaneando…'
+    : '<span class="btn-icon">⬤</span> Escanear';
 }
 
 function selectPat(id, emit = true) {
   selPat = id;
-  document.querySelectorAll('.pat-card').forEach(c => c.classList.toggle('selected', c.dataset.id === id));
-  const p = PATRONES_DEF.find(x => x.id === id);
-  document.getElementById('sel-lbl').textContent = p ? 'Patrón: ' + p.nombre : 'Selecciona un patrón';
+  document.querySelectorAll('.pat-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.id === id);
+  });
+  const p = PATS.find(x => x.id === id);
+  document.getElementById('sel-hint').textContent = p ? 'Buscando: ' + p.nombre : 'Selecciona un patrón';
+  document.getElementById('cam-pat-tag').textContent = p ? 'Patrón: ' + p.nombre : 'Sin lote activo';
   if (emit && socket) socket.emit('set_patron', { patron: id });
 }
 
 function updateCtrs(c) {
   const ok = c.ok || 0, bad = c.alerta || 0, total = c.total || 0;
-  document.getElementById('cnt-ok').textContent    = ok;
-  document.getElementById('cnt-bad').textContent   = bad;
-  document.getElementById('cnt-total').textContent = total;
+  document.getElementById('cnt-ok').textContent  = ok;
+  document.getElementById('cnt-bad').textContent = bad;
+  document.getElementById('cnt-tot').textContent = total;
   if (total > 0) {
-    const acc = Math.round(ok / total * 100);
-    document.getElementById('acc-lbl').textContent = acc + '%';
+    const pct = Math.round(ok / total * 100);
+    document.getElementById('acc-val').textContent = pct + '%';
     const fill = document.getElementById('acc-fill');
-    fill.style.width = acc + '%';
-    fill.style.background = acc >= 80 ? 'var(--green)' : acc >= 50 ? 'var(--amber)' : 'var(--red)';
+    fill.style.width = pct + '%';
+    fill.style.background = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
   }
 }
 
-function resetContadores() {
+function resetCtrs() {
   if (socket) socket.emit('reset_contadores');
-  updateCtrs({ ok: 0, alerta: 0, total: 0 });
-  document.getElementById('acc-lbl').textContent  = '—';
+  updateCtrs({ ok:0, alerta:0, total:0 });
+  document.getElementById('acc-val').textContent  = '—';
   document.getElementById('acc-fill').style.width = '0%';
-  log('Contadores reiniciados.');
+  document.getElementById('scan-n').textContent   = '—';
+  addLog('inf', 'Contadores reiniciados');
 }
 
-function setBadge(on) {
-  const el = document.getElementById('conn-badge');
-  el.className = 'conn-pill ' + (on ? 'on' : 'off');
-  el.textContent = on ? '● Conectado' : '● Desconectado';
+function setConn(on) {
+  const pill = document.getElementById('conn-pill');
+  const txt  = document.getElementById('conn-txt');
+  pill.className = 'conn-pill ' + (on ? 'on' : 'off');
+  txt.textContent = on ? 'Conectado' : 'Sin conexión';
 }
 
-function log(html) {
-  const box = document.getElementById('log-box');
-  const d = document.createElement('div');
-  d.innerHTML = html;
-  box.appendChild(d);
-  while (box.children.length > 20) box.removeChild(box.firstChild);
+function addLog(type, msg) {
+  const box = document.getElementById('log');
+  const ts  = new Date().toTimeString().slice(0, 8);
+  const cls = { ok:'ok', err:'err', inf:'inf', wrn:'wrn' }[type] || 'inf';
+  box.insertAdjacentHTML('beforeend',
+    `<div><span class="ts">${ts}</span> <span class="${cls}">${msg}</span></div>`);
+  while (box.children.length > 30) box.removeChild(box.firstChild);
   box.scrollTop = box.scrollHeight;
 }
 
-// Arranque
-conectar();
+// Animación del botón escaneando
+const style = document.createElement('style');
+style.textContent = `@keyframes spin { to { transform: rotate(360deg); } }`;
+document.head.appendChild(style);
+
+init();
 </script>
 </body>
 </html>
