@@ -201,13 +201,51 @@ body {
   min-height: 14px;
 }
 
-/* ══ COL CENTRO — CÁMARA ══════════════════════════════ */
+/* ══ COL CENTRO — CÁMARA + MÁSCARA ═══════════════════ */
 
-.cam-panel {
+/* Fila que contiene cámara y (opcionalmente) máscara lado a lado */
+.cam-row {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
+  gap: 8px;
+}
+.cam-row .cam-panel {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.cam-panel {
+  display: flex;
   flex-direction: column;
+}
+
+/* Botón toggle de máscara en el header de la cámara */
+.btn-mask-toggle {
+  font-size: 9px; font-weight: 700;
+  padding: 3px 9px; border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--s2); color: var(--t2);
+  cursor: pointer; transition: background .12s, border-color .12s, color .12s;
+  white-space: nowrap;
+}
+.btn-mask-toggle:hover { border-color: var(--amber); color: var(--amber); background: var(--amber-lt); }
+.btn-mask-toggle.active { background: var(--amber); color: #fff; border-color: var(--amber); }
+
+/* Badge de modo de máscara */
+.mask-mode {
+  font-size: 9px; font-weight: 700; padding: 2px 7px;
+  border-radius: 4px; text-transform: uppercase; letter-spacing: .06em;
+}
+.mask-mode.pat { background: var(--blue-lt); color: var(--blue); }
+.mask-mode.hsv { background: var(--amber-lt); color: var(--amber); }
+.mask-mode.off { background: var(--s2); color: var(--t3); }
+
+/* Imagen de máscara — misma estructura que #cam-img */
+#mask-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
 }
 .cam-head {
   flex: 0 0 auto;
@@ -438,18 +476,111 @@ body {
 }
 .btn-reset:hover { background: var(--s2); }
 
+/* ══ BOTÓN CALIBRAR ═══════════════════════════════════ */
+.btn-calib {
+  flex: 0 0 auto;
+  width: 100%; padding: 8px;
+  font-size: 11px; font-weight: 600;
+  color: var(--amber); background: var(--amber-lt);
+  border: 1px solid #fcd34d; border-radius: var(--r);
+  cursor: pointer; transition: background .12s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn-calib:hover { background: #fef3c7; }
+.btn-calib.active { background: var(--amber); color: #fff; border-color: var(--amber); }
+
+/* ══ CAJÓN DE CALIBRACIÓN HSV ═════════════════════════ */
+.calib-drawer {
+  position: fixed;
+  bottom: -100%;
+  left: 0; right: 0;
+  background: var(--surface);
+  border-top: 2px solid var(--amber);
+  box-shadow: 0 -6px 24px rgba(0,0,0,.12);
+  z-index: 200;
+  transition: bottom .28s cubic-bezier(.4,0,.2,1);
+  padding: 0;
+}
+.calib-drawer.open { bottom: 0; }
+
+.calib-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.calib-title {
+  font-size: 11px; font-weight: 800;
+  color: var(--amber); text-transform: uppercase; letter-spacing: .08em;
+}
+.calib-presets { display: flex; gap: 5px; flex-wrap: wrap; }
+.calib-preset {
+  font-size: 9px; font-weight: 700; padding: 3px 8px;
+  border-radius: 4px; border: 1px solid var(--border);
+  background: var(--s2); color: var(--t2);
+  cursor: pointer; transition: background .1s, border-color .1s;
+}
+.calib-preset:hover { border-color: var(--amber); background: var(--amber-lt); color: var(--amber); }
+.calib-spacer { flex: 1; }
+.calib-values-display {
+  font-size: 10px; font-family: 'Cascadia Code', 'SF Mono', monospace;
+  color: var(--t3); background: var(--s2);
+  padding: 3px 10px; border-radius: 4px;
+  white-space: nowrap;
+}
+.calib-values-display span { color: var(--amber); font-weight: 700; }
+.btn-calib-close {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: none; background: var(--s2); color: var(--t2);
+  font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.btn-calib-close:hover { background: var(--border); }
+
+.calib-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px 24px;
+  padding: 12px 16px 14px;
+}
+.sl-row { display: flex; flex-direction: column; gap: 4px; }
+.sl-top { display: flex; justify-content: space-between; align-items: baseline; }
+.sl-label { font-size: 10px; font-weight: 700; color: var(--t2); }
+.sl-val { font-size: 12px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
+.sl-range {
+  width: 100%; height: 6px;
+  -webkit-appearance: none; appearance: none;
+  border-radius: 3px; cursor: pointer; outline: none;
+  border: none;
+}
+.sl-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--blue);
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  cursor: pointer;
+}
+.sl-range::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--blue);
+  cursor: pointer;
+}
+.sl-hue   { background: linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00); }
+.sl-sat   { background: linear-gradient(to right, #aaa, #f55); }
+.sl-val-g { background: linear-gradient(to right, #000, #fff); }
+
 /* ══ RESPONSIVE ═══════════════════════════════════════ */
 @media (max-width: 820px) {
   html, body { height: auto; overflow: auto; }
-  .grid { grid-template-columns: 1fr 1fr; }
+  .grid       { grid-template-columns: 1fr 1fr; }
   .col-center { grid-column: 1 / -1; order: -1; }
   .cam-frame  { aspect-ratio: 4/3; }
+  .cam-row    { flex-direction: column; }
   .col-right  { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
   .col-right > * { flex: 1 1 160px; }
-  .log-panel { flex: 1 1 100%; min-height: 140px; }
+  .log-panel  { flex: 1 1 100%; min-height: 140px; }
 }
 @media (max-width: 500px) {
-  .grid { grid-template-columns: 1fr; }
+  .grid       { grid-template-columns: 1fr; }
   .col-center { grid-column: 1; }
 }
 </style>
@@ -495,57 +626,94 @@ body {
     </button>
 
     <div class="sel-hint" id="sel-hint">Selecciona un patrón</div>
+
+    <button class="btn-calib" id="btn-calib" onclick="toggleCalib()">
+      ⊞ Calibrar HSV
+    </button>
   </div>
 
-  <!-- ── Centro: cámara ── -->
+  <!-- ── Centro: cámara + máscara (lado a lado) ── -->
   <div class="col col-center">
-    <div class="panel cam-panel">
-      <div class="cam-head">
-        <div class="live-badge">
-          <div class="live-dot"></div>
-          Cámara en vivo
+    <div class="cam-row" id="cam-row">
+
+      <!-- Panel cámara principal -->
+      <div class="panel cam-panel">
+        <div class="cam-head">
+          <div class="live-badge">
+            <div class="live-dot"></div>
+            Cámara en vivo
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:10px;color:var(--t3);" id="fps-lbl">— fps</span>
+            <button class="btn-mask-toggle" id="btn-mask-toggle" onclick="toggleMaskPanel()">⊞ Ver máscara</button>
+          </div>
         </div>
-        <span style="font-size:10px;color:var(--t3);" id="fps-lbl">— fps</span>
-      </div>
 
-      <div class="cam-frame">
-        <!-- MJPEG directo: el browser lo decodifica sin pasar por JavaScript -->
-        <img id="cam-img" src="/stream" alt="">
+        <div class="cam-frame">
+          <img id="cam-img" src="/stream" alt="">
 
-        <div class="cam-offline" id="cam-offline">
-          <svg width="48" height="40" viewBox="0 0 48 40">
-            <rect x="2" y="5" width="44" height="30" rx="4" fill="none" stroke="#fff" stroke-width="1.5"/>
-            <circle cx="24" cy="20" r="8" fill="none" stroke="#fff" stroke-width="1.5"/>
-            <circle cx="24" cy="20" r="3" fill="#fff"/>
+          <div class="cam-offline" id="cam-offline">
+            <svg width="48" height="40" viewBox="0 0 48 40">
+              <rect x="2" y="5" width="44" height="30" rx="4" fill="none" stroke="#fff" stroke-width="1.5"/>
+              <circle cx="24" cy="20" r="8" fill="none" stroke="#fff" stroke-width="1.5"/>
+              <circle cx="24" cy="20" r="3" fill="#fff"/>
+            </svg>
+            <p>Sin señal de cámara</p>
+          </div>
+
+          <svg id="guide" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+            <circle id="guide-ring" cx="50" cy="50" r="47"
+              fill="none" stroke="rgba(255,255,255,.55)"
+              stroke-width="1.2" stroke-dasharray="6 4"/>
+            <circle cx="50" cy="50" r="1.8" fill="rgba(255,255,255,.5)"/>
+            <line x1="50" y1="1"  x2="50" y2="8"  stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
+            <line x1="50" y1="92" x2="50" y2="99" stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
+            <line x1="1"  y1="50" x2="8"  y2="50" stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
+            <line x1="92" y1="50" x2="99" y2="50" stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
           </svg>
-          <p>Sin señal de cámara</p>
+
+          <div id="flash"></div>
+
+          <div class="cam-status">
+            <span class="cam-tag" id="cam-pat-tag">Sin lote activo</span>
+            <span class="cam-tag" id="fps-tag">— fps</span>
+          </div>
         </div>
 
-        <!-- Guía de zona de análisis -->
-        <svg id="guide" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-          <circle id="guide-ring" cx="50" cy="50" r="47"
-            fill="none" stroke="rgba(255,255,255,.55)"
-            stroke-width="1.2" stroke-dasharray="6 4"/>
-          <circle cx="50" cy="50" r="1.8" fill="rgba(255,255,255,.5)"/>
-          <line x1="50" y1="1"  x2="50" y2="8"  stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
-          <line x1="50" y1="92" x2="50" y2="99" stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
-          <line x1="1"  y1="50" x2="8"  y2="50" stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
-          <line x1="92" y1="50" x2="99" y2="50" stroke="rgba(255,255,255,.4)" stroke-width=".8"/>
-        </svg>
-
-        <div id="flash"></div>
-
-        <div class="cam-status">
-          <span class="cam-tag" id="cam-pat-tag">Sin lote activo</span>
-          <span class="cam-tag" id="fps-tag">— fps</span>
+        <div class="cov-section">
+          <div class="cov-head">Cobertura de color en zona analizada</div>
+          <div class="cov-grid" id="cov-grid"></div>
         </div>
       </div>
 
-      <!-- Cobertura de color -->
-      <div class="cov-section">
-        <div class="cov-head">Cobertura de color en zona analizada</div>
-        <div class="cov-grid" id="cov-grid"></div>
+      <!-- Panel máscara (oculto por defecto, mismo tamaño que cámara) -->
+      <div class="panel cam-panel" id="mask-panel" style="display:none">
+        <div class="cam-head">
+          <div class="live-badge">
+            <div class="live-dot" style="background:#f59e0b;animation:blink 1.2s ease-in-out infinite;"></div>
+            Máscara de color
+          </div>
+          <span class="mask-mode off" id="mask-mode-tag">Sin patrón</span>
+        </div>
+
+        <div class="cam-frame">
+          <img id="mask-img" alt="">
+          <div class="cam-offline" id="mask-offline">
+            <svg width="48" height="40" viewBox="0 0 48 40" opacity=".15">
+              <ellipse cx="24" cy="20" rx="18" ry="14" fill="none" stroke="#fff" stroke-width="1.5"/>
+              <circle cx="24" cy="20" r="5" fill="none" stroke="#fff" stroke-width="1.5"/>
+            </svg>
+            <p>Selecciona un patrón<br>o activa la calibración</p>
+          </div>
+        </div>
+
+        <!-- Sin barras de cobertura, solo ocupa el espacio equivalente -->
+        <div class="cov-section" style="visibility:hidden;pointer-events:none">
+          <div class="cov-head">&nbsp;</div>
+          <div style="height:24px"></div>
+        </div>
       </div>
+
     </div>
   </div>
 
@@ -605,6 +773,56 @@ body {
 
 </div>
 
+<!-- ══ CAJÓN DE CALIBRACIÓN HSV ══ -->
+<div class="calib-drawer" id="calib-drawer">
+  <div class="calib-header">
+    <span class="calib-title">⊞ Calibración HSV</span>
+    <div class="calib-presets">
+      <button class="calib-preset" onclick="loadPatHSV('dots')">Puntos fucsia</button>
+      <button class="calib-preset" onclick="loadPatHSV('halfblue')">Mitad azul</button>
+      <button class="calib-preset" onclick="loadPatHSV('orange')">Ondas naranja</button>
+      <button class="calib-preset" onclick="loadPatHSV('green')">Bloques verdes</button>
+    </div>
+    <div class="calib-spacer"></div>
+    <div class="calib-values-display">
+      bajo=(<span id="cal-lo">—</span>) &nbsp; alto=(<span id="cal-hi">—</span>)
+    </div>
+    <button class="btn-calib-close" onclick="toggleCalib(false)" title="Cerrar">✕</button>
+  </div>
+  <div class="calib-body">
+    <!-- H mín -->
+    <div class="sl-row">
+      <div class="sl-top"><span class="sl-label">H mín</span><span class="sl-val" id="sv-h-min">0</span></div>
+      <input type="range" class="sl-range sl-hue" id="sl-h-min" min="0" max="180" value="0" oninput="onSlider()">
+    </div>
+    <!-- H máx -->
+    <div class="sl-row">
+      <div class="sl-top"><span class="sl-label">H máx</span><span class="sl-val" id="sv-h-max">180</span></div>
+      <input type="range" class="sl-range sl-hue" id="sl-h-max" min="0" max="180" value="180" oninput="onSlider()">
+    </div>
+    <!-- S mín -->
+    <div class="sl-row">
+      <div class="sl-top"><span class="sl-label">S mín</span><span class="sl-val" id="sv-s-min">0</span></div>
+      <input type="range" class="sl-range sl-sat" id="sl-s-min" min="0" max="255" value="0" oninput="onSlider()">
+    </div>
+    <!-- S máx -->
+    <div class="sl-row">
+      <div class="sl-top"><span class="sl-label">S máx</span><span class="sl-val" id="sv-s-max">255</span></div>
+      <input type="range" class="sl-range sl-sat" id="sl-s-max" min="0" max="255" value="255" oninput="onSlider()">
+    </div>
+    <!-- V mín -->
+    <div class="sl-row">
+      <div class="sl-top"><span class="sl-label">V mín</span><span class="sl-val" id="sv-v-min">0</span></div>
+      <input type="range" class="sl-range sl-val-g" id="sl-v-min" min="0" max="255" value="0" oninput="onSlider()">
+    </div>
+    <!-- V máx -->
+    <div class="sl-row">
+      <div class="sl-top"><span class="sl-label">V máx</span><span class="sl-val" id="sv-v-max">255</span></div>
+      <input type="range" class="sl-range sl-val-g" id="sl-v-max" min="0" max="255" value="255" oninput="onSlider()">
+    </div>
+  </div>
+</div>
+
 <script>
 // ══ PATRONES ══════════════════════════════════════════
 const PATS = [
@@ -640,10 +858,20 @@ PATS.forEach(p => {
 });
 
 // ══ ESTADO ════════════════════════════════════════════
-let selPat   = null;
-let scanning  = false;
-let socket    = null;
-let scanTotal = 0;
+let selPat     = null;
+let scanning   = false;
+let socket     = null;
+let scanTotal  = 0;
+let calibActive = false;
+let calibTimer  = null;
+
+// Presets HSV de cada patrón (deben coincidir con vision.py)
+const HSV_PRESETS = {
+  dots:     { hMin:113, hMax:167, sMin: 71, sMax:255, vMin:  0, vMax:255 },
+  halfblue: { hMin: 79, hMax:109, sMin: 69, sMax:255, vMin: 60, vMax:190 },
+  orange:   { hMin:174, hMax:180, sMin: 82, sMax:255, vMin:  0, vMax:255 },
+  green:    { hMin: 61, hMax: 76, sMin: 90, sMax:255, vMin:  0, vMax:255 },
+};
 
 // ── FPS counter via MJPEG nativo (event 'load' del img) ──────────────────────
 // El browser dispara 'load' cada vez que decodifica un frame MJPEG
@@ -808,6 +1036,106 @@ function selectPat(id, emit = true) {
   document.getElementById('sel-hint').textContent = p ? 'Buscando: ' + p.nombre : 'Selecciona un patrón';
   document.getElementById('cam-pat-tag').textContent = p ? 'Patrón: ' + p.nombre : 'Sin lote activo';
   if (emit && socket) socket.emit('set_patron', { patron: id });
+  updateMaskUI();
+}
+
+// ══ MÁSCARA ═══════════════════════════════════════════
+let maskPanelOpen = false;
+
+function toggleMaskPanel(force) {
+  maskPanelOpen = force !== undefined ? force : !maskPanelOpen;
+  const panel = document.getElementById('mask-panel');
+  const btn   = document.getElementById('btn-mask-toggle');
+  panel.style.display = maskPanelOpen ? '' : 'none';
+  btn.classList.toggle('active', maskPanelOpen);
+  btn.textContent = maskPanelOpen ? '✕ Cerrar máscara' : '⊞ Ver máscara';
+  updateMaskUI();
+}
+
+function updateMaskUI() {
+  const hasSource = selPat !== null || calibActive;
+  const img       = document.getElementById('mask-img');
+  const offline   = document.getElementById('mask-offline');
+  const tag       = document.getElementById('mask-mode-tag');
+
+  if (maskPanelOpen && hasSource && !img.src.endsWith('/stream-mask')) {
+    img.src = '/stream-mask';
+  }
+  img.style.display     = (maskPanelOpen && hasSource) ? '' : 'none';
+  offline.style.display = (maskPanelOpen && hasSource) ? 'none' : '';
+
+  if (calibActive) {
+    tag.textContent = 'Calibración HSV';
+    tag.className   = 'mask-mode hsv';
+  } else if (selPat) {
+    const p = PATS.find(x => x.id === selPat);
+    tag.textContent = p ? p.nombre : selPat;
+    tag.className   = 'mask-mode pat';
+  } else {
+    tag.textContent = 'Sin patrón';
+    tag.className   = 'mask-mode off';
+  }
+}
+
+// ══ CALIBRACIÓN HSV ═══════════════════════════════════
+function toggleCalib(force) {
+  calibActive = force !== undefined ? force : !calibActive;
+  document.getElementById('calib-drawer').classList.toggle('open', calibActive);
+  document.getElementById('btn-calib').classList.toggle('active', calibActive);
+
+  if (calibActive) {
+    // Cargar preset del patrón activo si hay uno
+    if (selPat && HSV_PRESETS[selPat]) loadPatHSV(selPat, false);
+    onSlider(); // Emitir rango actual al activar
+    addLog('inf', 'Calibración HSV activada');
+  } else {
+    if (socket) socket.emit('clear_hsv_range');
+    addLog('inf', 'Calibración desactivada — máscara restaurada');
+  }
+  updateMaskUI();
+}
+
+function loadPatHSV(id, emitNow = true) {
+  const p = HSV_PRESETS[id];
+  if (!p) return;
+  const map = {
+    'sl-h-min': p.hMin, 'sl-h-max': p.hMax,
+    'sl-s-min': p.sMin, 'sl-s-max': p.sMax,
+    'sl-v-min': p.vMin, 'sl-v-max': p.vMax,
+  };
+  Object.entries(map).forEach(([slId, val]) => {
+    const sl = document.getElementById(slId);
+    if (sl) { sl.value = val; document.getElementById(slId.replace('sl-','sv-')).textContent = val; }
+  });
+  updateCalibDisplay();
+  if (emitNow) emitHSV();
+}
+
+function onSlider() {
+  // Actualizar etiquetas de valor
+  ['h-min','h-max','s-min','s-max','v-min','v-max'].forEach(id => {
+    const v = document.getElementById('sl-' + id)?.value;
+    if (v !== undefined) document.getElementById('sv-' + id).textContent = v;
+  });
+  updateCalibDisplay();
+  clearTimeout(calibTimer);
+  calibTimer = setTimeout(emitHSV, 30);
+}
+
+function updateCalibDisplay() {
+  const g = id => parseInt(document.getElementById('sl-' + id)?.value ?? 0);
+  document.getElementById('cal-lo').textContent = `${g('h-min')}, ${g('s-min')}, ${g('v-min')}`;
+  document.getElementById('cal-hi').textContent = `${g('h-max')}, ${g('s-max')}, ${g('v-max')}`;
+}
+
+function emitHSV() {
+  if (!socket) return;
+  const g = id => parseInt(document.getElementById('sl-' + id)?.value ?? 0);
+  socket.emit('set_hsv_range', {
+    h1: g('h-min'), h2: g('h-max'),
+    s1: g('s-min'), s2: g('s-max'),
+    v1: g('v-min'), v2: g('v-max'),
+  });
 }
 
 function updateCtrs(c) {

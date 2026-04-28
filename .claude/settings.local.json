@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(pip install *)",
+      "Bash(python -u -c ' *)",
+      "Bash(python create_excel.py)",
+      "Bash(python -c \"import json; d=json.load\\(open\\('C:/Users/grego/Downloads/thesis_pages.json',encoding='utf-8'\\)\\); print\\(list\\(d[0].keys\\(\\)\\)\\)\")",
+      "Bash(node create_lit_review.js)",
+      "Bash(npm install *)",
+      "Bash(python -c \"import pdfplumber; print\\('pdfplumber ok'\\)\")",
+      "Bash(python -c \"import pypdf; print\\('pypdf ok'\\)\")",
+      "Bash(node create_marco_teorico.js)",
+      "Bash(node -e \"const p = require\\('./node_modules/serialport/package.json'\\); console.log\\(p.version, p.main\\)\")",
+      "Bash(node --check server.js)"
+    ]
+  }
+}

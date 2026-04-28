@@ -15,21 +15,25 @@
  *   node server.js --debug        (activa ventana OpenCV en Python)
  */
 
-const express    = require("express");
-const http       = require("http");
-const { Server } = require("socket.io");
-const { spawn }  = require("child_process");
-const path       = require("path");
-const readline   = require("readline");
+const express          = require("express");
+const http             = require("http");
+const { Server }       = require("socket.io");
+const { spawn }        = require("child_process");
+const path             = require("path");
+const readline         = require("readline");
+const { SerialPort }   = require("serialport");
+const { ReadlineParser } = require("@serialport/parser-readline");
 
 // ── Argumentos ──────────────────────────────────────────────────────────────
 const argv    = process.argv.slice(2);
 const getArg  = (flag, def) => { const i = argv.indexOf(flag); return i !== -1 ? argv[i + 1] : def; };
 const hasFlag = (flag) => argv.includes(flag);
 
-const CAM_IDX  = getArg("--cam", "0");
-const PORT_WEB = parseInt(getArg("--web", "3000"), 10);
-const DEBUG_PY = hasFlag("--debug");
+const CAM_IDX    = getArg("--cam", "0");
+const PORT_WEB   = parseInt(getArg("--web", "3000"), 10);
+const DEBUG_PY   = hasFlag("--debug");
+const SERIAL_PORT = getArg("--serial", null);   // ej: --serial COM3
+const SERIAL_BAUD = parseInt(getArg("--baud", "115200"), 10);
 
 // ── Express + Socket.io ──────────────────────────────────────────────────────
 const app    = express();
@@ -45,25 +49,29 @@ app.get("/", (_req, res) => res.sendFile(path.join(__dirname, "index.html")));
 const BOUNDARY   = "mjpegframe";
 const FRAME_HEAD = `--${BOUNDARY}\r\nContent-Type: image/jpeg\r\n`;
 
-let latestFrame  = null;          // Buffer del último JPEG recibido
-const streamClients = new Set();  // Responses HTTP activas
+let latestFrame     = null;
+let latestMaskFrame = null;
+const streamClients     = new Set();
+const maskStreamClients = new Set();
 
-app.get("/stream", (req, res) => {
-  res.writeHead(200, {
-    "Content-Type":  `multipart/x-mixed-replace; boundary=${BOUNDARY}`,
-    "Cache-Control": "no-cache, no-store, must-revalidate",
-    "Pragma":        "no-cache",
-    "Connection":    "keep-alive",
-    "Transfer-Encoding": "chunked",
-  });
+function makeMjpegRoute(clientSet, getLatest) {
+  return (req, res) => {
+    res.writeHead(200, {
+      "Content-Type":      `multipart/x-mixed-replace; boundary=${BOUNDARY}`,
+      "Cache-Control":     "no-cache, no-store, must-revalidate",
+      "Pragma":            "no-cache",
+      "Connection":        "keep-alive",
+      "Transfer-Encoding": "chunked",
+    });
+    clientSet.add(res);
+    const latest = getLatest();
+    if (latest) pushFrame(res, latest);
+    req.on("close", () => clientSet.delete(res));
+  };
+}
 
-  streamClients.add(res);
-
-  // Enviar el último frame disponible de inmediato para evitar pantalla en negro
-  if (latestFrame) pushFrame(res, latestFrame);
-
-  req.on("close", () => streamClients.delete(res));
-});
+app.get("/stream",      makeMjpegRoute(streamClients,     () => latestFrame));
+app.get("/stream-mask", makeMjpegRoute(maskStreamClients, () => latestMaskFrame));
 
 function pushFrame(res, jpegBuf) {
   try {
@@ -80,6 +88,11 @@ function broadcastFrame(jpegBuf) {
   streamClients.forEach(res => pushFrame(res, jpegBuf));
 }
 
+function broadcastMaskFrame(jpegBuf) {
+  latestMaskFrame = jpegBuf;
+  maskStreamClients.forEach(res => pushFrame(res, jpegBuf));
+}
+
 // ── Estado global ────────────────────────────────────────────────────────────
 const PATRONES = ["dots", "halfblue", "orange", "green"];
 
@@ -88,6 +101,33 @@ let estado = {
   patronActivo: null,
   contadores:   { ok: 0, alerta: 0, total: 0 },
 };
+
+// ── Puerto Serial (ESP32) ────────────────────────────────────────────────────
+function arrancarSerial() {
+  if (!SERIAL_PORT) return;
+
+  const sp = new SerialPort({ path: SERIAL_PORT, baudRate: SERIAL_BAUD });
+  const parser = sp.pipe(new ReadlineParser({ delimiter: "\n" }));
+
+  sp.on("open", () =>
+    console.log(`[SERIAL] Conectado a ${SERIAL_PORT} @ ${SERIAL_BAUD} baud`)
+  );
+
+  parser.on("data", (line) => {
+    const cmd = line.trim().toUpperCase();
+    if (cmd === "SCAN") {
+      if (pyProc?.stdin.writable) {
+        pyProc.stdin.write("SCAN\n");
+        console.log("[SERIAL] SCAN → Python");
+        io.emit("vision", { evt: "serial_trigger" });
+      }
+    }
+  });
+
+  sp.on("error", (err) =>
+    console.error(`[SERIAL] Error: ${err.message}`)
+  );
+}
 
 // ── Proceso Python ───────────────────────────────────────────────────────────
 let pyProc = null;
@@ -124,10 +164,13 @@ function arrancarVision() {
 // ── Procesar evento de Python ────────────────────────────────────────────────
 function procesarEvento(evt) {
 
-  // Frame de video: decodificar base64 → Buffer → broadcast MJPEG
-  // No se emite por Socket.io, va directo al stream HTTP
   if (evt.evt === "frame") {
     broadcastFrame(Buffer.from(evt.data, "base64"));
+    return;
+  }
+
+  if (evt.evt === "frame_mask") {
+    broadcastMaskFrame(Buffer.from(evt.data, "base64"));
     return;
   }
 
@@ -177,7 +220,28 @@ io.on("connection", (socket) => {
     if (PATRONES.includes(data.patron) || data.patron === null) {
       estado.patronActivo = data.patron;
       io.emit("patron_cambiado", { patron: data.patron });
+      // Reenviar a Python para que actualice la máscara en vivo
+      if (pyProc?.stdin.writable) {
+        pyProc.stdin.write(`PATRON ${data.patron || ""}\n`);
+      }
       console.log(`[WS] patron → ${data.patron}`);
+    }
+  });
+
+  socket.on("set_hsv_range", (data) => {
+    if (pyProc?.stdin.writable) {
+      const { h1, h2, s1, s2, v1, v2 } = data;
+      pyProc.stdin.write(`HSV ${h1} ${h2} ${s1} ${s2} ${v1} ${v2}\n`);
+    }
+  });
+
+  socket.on("clear_hsv_range", () => {
+    if (pyProc?.stdin.writable) {
+      pyProc.stdin.write("HSV_CLEAR\n");
+      // Restaurar máscara del patrón activo si hay uno
+      if (estado.patronActivo && pyProc.stdin.writable) {
+        pyProc.stdin.write(`PATRON ${estado.patronActivo}\n`);
+      }
     }
   });
 
@@ -197,8 +261,10 @@ server.listen(PORT_WEB, () => {
   console.log(`║  HMI    → http://localhost:${PORT_WEB}               ║`);
   console.log(`║  Stream → http://localhost:${PORT_WEB}/stream        ║`);
   console.log(`║  Cam    → ${CAM_IDX}   Debug → ${DEBUG_PY ? "sí" : "no"}                  ║`);
+  console.log(`║  Serial → ${(SERIAL_PORT ?? "no configurado").padEnd(34)}║`);
   console.log(`╚══════════════════════════════════════════════╝\n`);
   pyProc = arrancarVision();
+  arrancarSerial();
 });
 
 process.on("SIGINT",  () => { if (pyProc) pyProc.kill(); process.exit(0); });

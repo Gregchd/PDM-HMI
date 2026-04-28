@@ -98,6 +98,26 @@ def analizar(frame: np.ndarray):
 
 
 # ══════════════════════════════════════════════
+#  MASCARA DE COLOR (preview continuo)
+# ══════════════════════════════════════════════
+
+def compute_mask_frame(frame: np.ndarray, pid, custom_hsv) -> Optional[np.ndarray]:
+    """Retorna frame con solo los pixeles HSV coincidentes (resto negro). None si no hay rango activo."""
+    if custom_hsv is None and (pid is None or pid not in PATRONES):
+        return None
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    if custom_hsv is not None:
+        lo, hi = custom_hsv
+        m = cv2.inRange(hsv, lo, hi)
+    else:
+        p = PATRONES[pid]
+        m = cv2.inRange(hsv, np.array(p.bajo), np.array(p.alto))
+        if p.bajo2:
+            m |= cv2.inRange(hsv, np.array(p.bajo2), np.array(p.alto2))
+    return cv2.bitwise_and(frame, frame, mask=m)
+
+
+# ══════════════════════════════════════════════
 #  CALIBRACION INTERACTIVA
 # ══════════════════════════════════════════════
 
@@ -184,8 +204,10 @@ def main():
 
     # ── Loop principal ──
     intervalo_stream = 1.0 / max(args.stream_fps, 1)
-    t_stream  = 0.0
-    contador  = 0
+    t_stream        = 0.0
+    contador        = 0
+    mask_pid        = None   # patron activo para preview de mascara
+    mask_custom_hsv = None   # rango HSV personalizado (calibracion); sobreescribe mask_pid
 
     while True:
         ret, frame = cap.read()
@@ -195,15 +217,17 @@ def main():
 
         ahora = time.time()
 
-        # ── Stream de video al browser ──
-        # Calidad 90: visualmente indistinguible del original, mucho mejor que 60.
-        # server.js lo sirve como MJPEG via HTTP; el browser lo decodifica nativo.
+        # ── Stream de video + mascara al browser ──
         if (ahora - t_stream) >= intervalo_stream:
             t_stream = ahora
             _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
             emit({"evt": "frame", "data": base64.b64encode(buf).decode()})
+            mf = compute_mask_frame(frame, mask_pid, mask_custom_hsv)
+            if mf is not None:
+                _, buf_m = cv2.imencode('.jpg', mf, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                emit({"evt": "frame_mask", "data": base64.b64encode(buf_m).decode()})
 
-        # ── Procesar comandos SCAN recibidos por stdin ──
+        # ── Procesar comandos recibidos por stdin ──
         with lock:
             pendientes = cmds[:]
             cmds.clear()
@@ -216,11 +240,29 @@ def main():
                     "evt":       "scan",
                     "n":          contador,
                     "detectado":  det,
-                    "confianza":  confianza,   # dominancia relativa 0.0-1.0
-                    "coberturas": cobs,        # cobertura bruta de area por patron
+                    "confianza":  confianza,
+                    "coberturas": cobs,
                     "ts":         round(ahora, 2),
                 })
                 sys.stderr.write(f"[SCAN #{contador}] det={det}  confianza={confianza:.0%}  cobs={cobs}\n")
+            elif cmd.startswith("PATRON "):
+                pid_val = cmd[7:].strip()
+                mask_pid = pid_val if pid_val in PATRONES else None
+                sys.stderr.write(f"[MASK] patron → {mask_pid}\n")
+            elif cmd.startswith("HSV "):
+                parts = cmd[4:].split()
+                if len(parts) == 6:
+                    try:
+                        v = list(map(int, parts))
+                        mask_custom_hsv = (
+                            np.array([v[0], v[2], v[4]], dtype=np.uint8),
+                            np.array([v[1], v[3], v[5]], dtype=np.uint8),
+                        )
+                    except ValueError:
+                        pass
+            elif cmd == "HSV_CLEAR":
+                mask_custom_hsv = None
+                sys.stderr.write("[MASK] custom HSV cleared\n")
 
         # ── Ventana debug local ──
         if args.debug:
